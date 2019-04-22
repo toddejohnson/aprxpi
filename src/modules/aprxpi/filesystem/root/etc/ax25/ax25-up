@@ -1,0 +1,66 @@
+#!/bin/bash
+# ax25-up.pi
+# Ax25, rose, & mkiss - are pre-loaded via /etc/modules
+
+# Set Sysctl values
+sysctl -wq kernel.panic=30
+sysctl -wq kernel.panic_on_oops=30
+
+# Set defaults
+
+#Configure from /boot/aprxpi.txt
+if [ -e "/boot/aprxpi.txt" ]; then
+    echo "Using config from /boot/aprxpi.txt"
+    source "/boot/aprxpi.txt"
+fi
+[ -z "$CALL" ] && echo "Missing CALL" && exit 1
+[[ "$CALL" == "N0CALL" ]] && echo "Please configure call" && exit 1
+[ -z "$AX25BAUD" ] && echo "Incorrect AX25BAUD" && exit 1
+echo "Configured for ${CALL}${RMSSSID}"
+
+cat << EOF > /etc/ax25/axports
+#Port	 Call		Baud	PacLen	Window	Description
+0	${CALL}		${AX25BAUD}	256	7	Radio - ${FREQ} MHz
+EOF
+
+# Port0 (Start)
+echo "Start Port 0"
+
+/usr/sbin/kissattach ${AX25DEV} 0 ${AX25IP} >/tmp/ax25-config.tmp
+awk '/device/ { print $7 }' /tmp/ax25-config.tmp > /tmp/ax25-config-tmp
+read Device < /tmp/ax25-config-tmp
+
+# Install Parameter: P=128, W=10, TX-Delay=200
+  /usr/sbin/kissparms -p 0 -r 128 -s 10 -l 20 -t 250
+
+# Parms for a USER Port
+cd /proc/sys/net/ax25/$Device/
+echo 3000    > t1_timeout		# (Frack) /1000 = ? Sec
+echo 1000    > t2_timeout 		# (RESPtime) /1000 = ? sec
+echo 300000  > t3_timeout 		# (Check) /6000 = ? Min
+echo 900000  > idle_timeout		# Idle Timer /6000 = ? min
+echo 5       > standard_window_size	# Outstanding Frames
+echo 8       > maximum_retry_count	# Max Retrys
+echo 256     > maximum_packet_length	# Paclen
+echo 0       > ax25_default_mode   
+echo 0       > ip_default_mode
+echo 0       > backoff_type
+echo 2       > connect_mode
+#echo 180000 > dama_slave_timeout
+echo 32      > extended_window_size
+echo 0       > protocol
+# Port0 (End)
+
+# Start "Other" Services
+
+# Open Listen on Term 11
+if [ "${AX25LISTEN}" == "yes" ]
+then
+  /usr/bin/axlisten -artc > /dev/tty11 &
+fi
+
+# Start Mheard daemon
+ /usr/sbin/mheardd -l -f -n 20
+  echo "mheardd Started"
+
+# AX25-up (End)
