@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# start_chroot_script
+# 
+# Written by Todd E Johnson <todd@toddejohnson.net>
+# GPL V3
+########
+
+# Source error handling, leave this in place
+source /common.sh
+install_cleanup_trap
+
+#unpack /filesystem/home/pi /home/pi pi
+#unpack /filesystem/home/root /root root
+unpack /filesystem/boot /boot
+
+
+apt-get update
+
+# in case we are building from a regular raspbian image instead of the lite one...
+remove_extra=$(remove_if_installed scratch squeak-plugins-scratch squeak-vm wolfram-engine python-minecraftpi minecraft-pi sonic-pi oracle-java8-jdk bluej libreoffice-common libreoffice-core freepats greenfoot nodered)
+echo "removing:" $remove_extra
+apt-get remove -y --purge  $remove_extra
+apt-get autoremove -y
+apt-get -y install git
+
+#Config for TNCPi
+sed -i 's/console=serial0,115200 //' /boot/cmdline.txt
+echo 'enable_uart=1' >> /boot/config.txt
+
+
+echo "--- Installing AX25"
+apt-get -y install libax25 ax25-tools ax25-apps
+
+
+
+wget -O aprx_${APRXPI_APRX_VER}_raspi.deb http://thelifeofkenneth.com/aprx/debs/aprx_${APRXPI_APRX_VER}_raspi.deb
+dpkg -i aprx_${APRXPI_APRX_VER}_raspi.deb
+systemctl_if_exists enable aprx.service
+
+# Unpack root at the end, so files are modified before
+unpack /filesystem/root /
+
+echo "---Enable AX.25"
+systemctl_if_exists enable ax25.service
+
+### Fix SSH
+echo "IPQoS 0x00" >> /etc/ssh/sshd_config
+
+### Try and fix https://github.com/guysoft/OctoPi/issues/424
+### Thanks guysoft/OctoPi!
+sed -i "s@ExecStart=/usr/bin/ssh-keygen -A -v@ExecStart=/bin/bash -c ' /usr/bin/ssh-keygen -A -v >> /var/log/regenerate_ssh_host_keys.log 2>\&1'@g" /lib/systemd/system/regenerate_ssh_host_keys.service
+sed -i "s@ExecStartPost=/bin/systemctl disable regenerate_ssh_host_keys@ExecStartPost=/bin/bash -c 'for i in /etc/ssh/ssh_host_*_key*; do actualsize=\$(wc -c <\"\$i\") ;if [ \$actualsize -eq 0 ]; then echo size is 0 bytes ; exit 1 ; fi ; done ; /bin/systemctl disable regenerate_ssh_host_keys'@g" /lib/systemd/system/regenerate_ssh_host_keys.service
+
+
