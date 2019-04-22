@@ -16,11 +16,11 @@ fi
 [ -z "$CALL" ] && echo "Missing CALL" && exit 1
 [[ "$CALL" == "N0CALL" ]] && echo "Please configure call" && exit 1
 [ -z "$AX25BAUD" ] && echo "Incorrect AX25BAUD" && exit 1
-echo "Configured for ${CALL}${RMSSSID}"
+echo "Configured for ${CALL}${CALLSSID}"
 
 cat << EOF > /etc/ax25/axports
 #Port	 Call		Baud	PacLen	Window	Description
-0	${CALL}		${AX25BAUD}	256	7	Radio - ${FREQ} MHz
+0	${CALL}${CALLSSID}		${AX25BAUD}	256	7	Radio - ${FREQ} MHz
 EOF
 
 # Port0 (Start)
