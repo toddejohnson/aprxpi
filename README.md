@@ -16,5 +16,6 @@ Downloads are available as releases from [releases](https://github.com/toddejohn
 
 ## Credit
 This is based upon:
+* APRX https://github.com/PhirePhly/aprx
 * CustomPiOS/OctoPi distro builder https://github.com/guysoft/CustomPiOS
 
